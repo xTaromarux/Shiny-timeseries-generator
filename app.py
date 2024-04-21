@@ -1,12 +1,10 @@
-import plotly.express as px
 from palmerpenguins import load_penguins
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget  
 from pathlib import Path
 from shared import restrict_width
-
 import pandas as pd
-import seaborn as sns
+# import seaborn as sns
 
 penguins = load_penguins()
 app_dir = Path(__file__).parent
@@ -14,9 +12,9 @@ df = pd.read_csv(app_dir / "GDP_per_capita_countries.csv")
 unique_values = df.iloc[:, 0].unique()
 first_column_header = df.columns[0]
 
+
 app_ui = ui.page_sidebar(
     ui.sidebar(
-
 
         ui.input_numeric(
             "base_amount", 
@@ -26,9 +24,7 @@ app_ui = ui.page_sidebar(
         ui.h6(
             {"class": "fw-bold"},
             "Input features"),
-        
-                ui.hr(),
-        
+                
         ui.div(
             ui.input_checkbox(
                 "features_from_csv_checkbox",
@@ -47,9 +43,25 @@ app_ui = ui.page_sidebar(
             id="div_for_more_features",
         ),
 
+        ui.div(
+            ui.h6(
+                {"class": "fw-bold"},
+                "Select factor for each feature"),
+            
+            id="div_for_factors_section",
+        ),
+        ui.accordion(
+            ui.accordion_panel(
+                "Select factor for each feature",
+
+            ),
+            
+            id="acc_items", 
+            multiple=True
+        ),
         ui.h6(
             {"class": "fw-bold"},
-            "Select factor for each feature"),
+            "Add other factor"),
         
         ui.div(
             ui.input_checkbox(
@@ -91,7 +103,7 @@ app_ui = ui.page_sidebar(
             "random_noise_checkbox", 
             "Add random noise", 
             False),
-
+        
         width=300
     ),
 
@@ -102,6 +114,7 @@ app_ui = ui.page_sidebar(
         ),
         
         ui.div(
+            
             ui.h5(
                 "Input start date and end date",
                 class_= "fw-bold"
@@ -125,14 +138,31 @@ app_ui = ui.page_sidebar(
             class_="col-md-78 col-lg-78 py-4 mx-auto"
         ),
         
+        
         sm=10,
         md=10,
         lg=8,
     ),
-    ui.output_plot("hist"),
+    # ui.output_plot("hist"),
 )
 
 def server(input, output, session):
+    # factor_list = []
+
+    # # generate time series
+    # g: Generator = Generator(
+    #     factors=set(factor_list),
+    #     features=feature_dict,
+    #     date_range=pd.date_range(start_date, end_date),
+    #     base_value=base_amount,
+    # )
+    # df_sale = g.generate()
+    
+    # @render.plot
+    # def hist():
+    #     hue = "species" 
+    #     sns.lineplot(data = df)
+
 
     def objects_with_data_from_csv():
         result = {}
@@ -145,6 +175,7 @@ def server(input, output, session):
         features_from_csv_checkbox = input.features_from_csv_checkbox()
 
         if features_from_csv_checkbox:
+
             input_with_data_from_csv = ui.input_selectize(  
                 "selectize_with_options_from_csv",  
                 "Choose "+first_column_header.split()[0],  
@@ -173,28 +204,33 @@ def server(input, output, session):
                 selector="#div_for_more_features",
                 where="beforeEnd",
             )
+
         else:
             ui.remove_ui("#inserted_input_with_more_features")
             
-    @render_widget  
-    def plot():  
-        scatterplot = px.histogram(
-            data_frame=penguins,
-            x="body_mass_g",
-            nbins=input.n(),
-        ).update_layout(
-            title={"text": "Penguin Mass", "x": 0.5},
-            yaxis_title="Count",
-            xaxis_title="Body Mass (g)",
-        )
-
-        return scatterplot  
     
-    @render.plot
-    def hist():
-        hue = "species" if input.species() else None
-        sns.kdeplot(df, x=input.var(), hue=hue)
-        if input.show_rug():
-            sns.rugplot(df, x=input.var(), hue=hue, color="black", alpha=0.25)
+    def out_out():
+        list_of_more_features = input.Input_feature_list().split(",")
+        for index in range(len(list_of_more_features)):
+            feature = list_of_more_features[index]
+            return str(feature)        
+    
+    # @reactive.effect
+    def _():
+        more_features_checkbox = input.more_features_checkbox()
+        if more_features_checkbox:            
+            input_values_of_feature = ui.input_text(
+            f"Input_values_of_feature_", 
+            f"Input values of feature {out_out()} (must separate by comma)", 
+            "product"),
+            ui.insert_ui(
+                ui.div({"id": f"Input_values_of_feature_"}, input_values_of_feature),
+                selector="#div_for_more_features",
+                where="beforeEnd",
+            )
+        else:
+            ui.update_
+            ui.remove_ui(f"#Input_values_of_feature_")     
+            
 
 app = App(app_ui, server)
