@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Union, Tuple
 
 from matplotlib.figure import Figure
-from matplotlib.axes._subplots import SubplotBase
+from matplotlib.axes import *
 from matplotlib.pyplot import subplots
 from pandas import DataFrame, date_range, DatetimeIndex
 from pandas._libs.tslibs.timestamps import Timestamp
