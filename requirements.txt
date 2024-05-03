@@ -4,3 +4,4 @@ pandas
 shinywidgets
 palmerpenguins
 plotly
+scipy
