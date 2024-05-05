@@ -31,8 +31,11 @@ first_column_header = df.columns[0]
 feature_dict = {}
 factor_list = []
 plot = reactive.value(pd.DataFrame())
-update_state = reactive.value(False)
+update_state_for_data_from_csv = reactive.value(False)
+update_state_for_more_features = reactive.value(False)
 holiday_factor_instance = reactive.value()
+addition_features = reactive.value(["product"])
+all_available_features = reactive.value([])
 
 app_ui = ui.page_sidebar(
     ui.sidebar(
@@ -56,31 +59,20 @@ app_ui = ui.page_sidebar(
                 id="div_for_data_from_csv",
             ),
 
-            # ui.div(
-            #     ui.input_checkbox(
-            #         "more_features_checkbox", 
-            #         "add more feature(s)", 
-            #         False),
+            ui.div(
+                ui.input_checkbox(
+                    "additional_features_checkbox", 
+                    "add more feature(s)", 
+                    False),
                 
-            #     id="div_for_more_features",
-            # ),
+                id="div_for_additional_features",
+            ),
         ),
         
         ui.accordion(
             ui.accordion_panel(
                 "Select factor for each feature",
                 ui.div(
-                    # ui.input_checkbox(
-                    #     "checkbox_factor_for_more_features",
-                    #     "Product".lower(),
-                    #     False),
-                    # ui.input_selectize(  
-                    #     "selectize_with_factor_options_for_more_features",  
-                    #     "select factor for [product]",  
-                    #     ["random_factor", "country_factor", "line_factor"],  
-                    #     multiple=True
-                    # ),
-                    
                     id="div_for_factors_section",
                 ),
             ),
@@ -118,8 +110,7 @@ app_ui = ui.page_sidebar(
                     "random_noise_checkbox", 
                     "Add random noise", 
                     False),
-                    ),
-            
+            ),
             
             id="acc_items", 
             multiple=True
@@ -200,9 +191,13 @@ def server(input, output, session):
             result.update({value : value})
         return result
  
-    def update_data():
-        result = not(update_state.get())
-        update_state.set(result)
+    def update_data_from_csv():
+        result = not(update_state_for_data_from_csv.get())
+        update_state_for_data_from_csv.set(result)
+
+    def update_more_features():
+        result = not(update_state_for_more_features.get())
+        update_state_for_more_features.set(result)
 
     def default_factors():   
         factor_list.clear()
@@ -265,24 +260,13 @@ def server(input, output, session):
                 
             if factor == 'country_factor':
                 factor_list.append(CountryGdpFactor(country_list=feature_dict[first_column_header.split()[0].lower()]))            
-
-    def input_linear_slope_of_feature_from_csv():
-        options_from_selectize = input.selectize_with_factor_options_from_csv()
-        if 'line_factor' in options_from_selectize:
-                ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
-
-                input_linear_slope_of_feature_from_csv = ui.input_numeric(
-                            "linear_slope_of_feature_from_csv", 
-                            "Linear slope of "+first_column_header.split()[0].lower(), 
-                            1, min=0, max=100000000000000000000),
-                ui.insert_ui(
-                    ui.div({"id": "inserted_input_linear_slope_of_feature_from_csv"}, input_linear_slope_of_feature_from_csv),
-                    selector="#div_for_factors_section",
-                    where="beforeEnd",
-                )
-        else:
-            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
-
+     
+    def generate_value_for_feature_list(addition_features):
+        result=[]
+        for i in range(3):
+            result.append(addition_features + "_" + str(i))
+        return result         
+    
     @reactive.effect 
     @reactive.event(input.weekend_factor_scale_checkbox,
                     input.eu_economics_factor_checkbox,
@@ -293,7 +277,7 @@ def server(input, output, session):
                     ignore_none=False)      
     def _():
         default_factors()
-        update_data()
+        update_data_from_csv()
     
     @reactive.effect 
     @reactive.event(input.holiday_factor_scale_checkbox,
@@ -308,15 +292,29 @@ def server(input, output, session):
     def _():
         default_factors()
         holiday_factor()
-        update_data()
+        update_data_from_csv()
     
     @reactive.effect 
     @reactive.event(input.selectize_with_factor_options_from_csv,
                     ignore_init=False,
                     ignore_none=False)      
     def _():
-        input_linear_slope_of_feature_from_csv()
-        update_data()
+        options_from_selectize = input.selectize_with_factor_options_from_csv()
+        if 'line_factor' in options_from_selectize:
+                ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
+
+                input_linear_slope_of_feature_from_csv = ui.input_numeric(
+                            "linear_slope_of_feature_from_csv", 
+                            "Linear slope of "+first_column_header.split()[0].lower(), 
+                            1, min=0, max=100000000000000000000),
+                ui.insert_ui(
+                    ui.div({"id": "inserted_input_linear_slope_of_feature_from_csv"}, input_linear_slope_of_feature_from_csv),
+                    selector="#inserted_selectize_with_factor_options_from_csv",
+                    where="beforeEnd",
+                )
+        else:
+            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
+        update_data_from_csv()
      
     @reactive.effect 
     @reactive.event(input.weekend_factor_scale_checkbox,
@@ -333,7 +331,7 @@ def server(input, output, session):
         default_factors()
         holiday_factor()
         option_selectize_with_factor()   
-        update_data()
+        update_data_from_csv()
         
     @reactive.effect 
     @reactive.event(input.weekend_factor_scale_checkbox,
@@ -351,13 +349,14 @@ def server(input, output, session):
         default_factors()
         holiday_factor()
         option_selectize_with_factor()   
-        update_data()
+        update_data_from_csv()
 
     @render_widget 
     @reactive.event(input.features_from_csv_checkbox,
                     input.selectize_with_all_active_features,
                     input.base_amount_input,
-                    update_state,
+                    update_state_for_data_from_csv,
+                    update_state_for_more_features,
                     ignore_init=False,
                     ignore_none=False)
     def hist():
@@ -365,7 +364,6 @@ def server(input, output, session):
         generatorDataFrame()
         DF_SALE = plot.get()
         if len(selectize_with_all_active_features) >= 1:
-            print(selectize_with_all_active_features)
             group_feat_l = selectize_with_all_active_features.copy()
             group_feat_l.insert(0, "date")
             DF_VIS = DF_SALE.groupby(group_feat_l)["value"].sum().reset_index()
@@ -390,7 +388,8 @@ def server(input, output, session):
     @reactive.event(input.features_from_csv_checkbox,
                     input.selectize_with_all_active_features,
                     input.base_amount_input,
-                    update_state,
+                    update_state_for_data_from_csv,
+                    update_state_for_more_features,
                     ignore_init=False,
                     ignore_none=False)
     def generator():
@@ -417,28 +416,36 @@ def server(input, output, session):
             )
             
         else:
-            input.holiday_factor_scale_checkbox.value = False
-            factor_list.remove(holiday_factor_instance.get())   
-
             ui.remove_ui("#inserted_input_selectize_with_data_from_csv")     
             ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
             ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
             ui.remove_ui("#inserted_checkbox_factor_for_features_from_csv")
             ui.remove_ui("#inserted_holiday_factor_scale_checkbox")
             ui.remove_ui("#inserted_holiday_factor_scale_slider")
-
+            all_active_features = list(input.selectize_with_all_active_features())
+            if len(all_active_features) >= 1:
+                all_active_features.remove(first_column_header.split()[0].lower())
             ui.update_selectize(
                 "selectize_with_all_active_features",
-                choices=[],
-                selected=[],
+                choices=all_available_features.get(),
+                selected=all_active_features,
                 server=False,
                 ) 
+        
+            input.holiday_factor_scale_checkbox.value = False
+            if holiday_factor_instance.get() in factor_list:
+                factor_list.remove(holiday_factor_instance.get())  
             
     @reactive.effect
     @reactive.event(input.selectize_with_options_from_csv)
     def _():
         selectize_with_options_from_csv = input.selectize_with_options_from_csv()
-        if len(selectize_with_options_from_csv) >= 1:
+        if len(selectize_with_options_from_csv) == 1:
+            ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
+            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
+            ui.remove_ui("#inserted_holiday_factor_scale_checkbox")
+            ui.remove_ui("#inserted_holiday_factor_scale_slider")
+            
             feature_dict[first_column_header.split()[0].lower()] = selectize_with_options_from_csv
                     
             holiday_factor_scale_checkbox = ui.input_checkbox(
@@ -449,11 +456,18 @@ def server(input, output, session):
                         "holiday_factor_scale_slider", 
                         "", 
                         1, 10, 2),
-            checkbox_factor_for_features_from_csv = ui.input_checkbox(
-                        "checkbox_factor_for_features_from_csv",
-                        first_column_header.split()[0].lower(),
-                        False),
+            selectize_with_factor_options_from_csv = ui.input_selectize(  
+                        "selectize_with_factor_options_from_csv",  
+                        "select factor for ["+first_column_header.split()[0].lower()+"]",  
+                        ["random_factor", "country_factor", "line_factor"],  
+                        multiple=True
+                    ),
             
+            ui.insert_ui(
+                ui.div({"id": "inserted_selectize_with_factor_options_from_csv"}, selectize_with_factor_options_from_csv),
+                selector="#div_for_factors_section",
+                where="beforeEnd",
+            )
             ui.insert_ui(
                 ui.div({"id": "inserted_holiday_factor_scale_checkbox"}, holiday_factor_scale_checkbox),
                 selector="#holiday_factor_scale_div",
@@ -464,133 +478,217 @@ def server(input, output, session):
                 selector="#holiday_factor_scale_div",
                 where="beforeBegin",
             )
-            ui.insert_ui(
-                ui.div({"id": "inserted_checkbox_factor_for_features_from_csv"}, checkbox_factor_for_features_from_csv),
-                selector="#div_for_factors_section",
-                where="beforeBegin",
-            )
             
+            all_active_features = list(input.selectize_with_all_active_features())
+            all_active_features.append(first_column_header.split()[0].lower())
+            all_available_features.set(all_available_features.get() + [first_column_header.split()[0].lower()])
             ui.update_selectize(
                 "selectize_with_all_active_features",
-                choices=[],
-                selected=[],
-                server=False,
-                )
-            ui.update_selectize(
-                "selectize_with_all_active_features",
-                choices=[first_column_header.split()[0].lower()],
-                selected=[first_column_header.split()[0].lower()],
+                choices=all_available_features.get(),
+                selected=all_active_features,
                 server=False,
                 )    
-        else:
-            input.holiday_factor_scale_checkbox.value = False
-            factor_list.remove(holiday_factor_instance.get())   
-
-            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
+        elif len(selectize_with_options_from_csv) < 1:
             ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
-            ui.remove_ui("#inserted_checkbox_factor_for_features_from_csv")
+            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
             ui.remove_ui("#inserted_holiday_factor_scale_checkbox")
             ui.remove_ui("#inserted_holiday_factor_scale_slider")
 
+            all_active_features = list(input.selectize_with_all_active_features())
+            if first_column_header.split()[0].lower() in all_active_features:
+                all_active_features.remove(first_column_header.split()[0].lower())
             ui.update_selectize(
                 "selectize_with_all_active_features",
-                choices=[],
-                selected=[],
+                choices=all_available_features.get(),
+                selected=all_active_features,
                 server=False,
                 ) 
             
-    @reactive.effect
-    @reactive.event(input.checkbox_factor_for_features_from_csv)
-    def _():
-        checkbox_factor_for_features_from_csv = input.checkbox_factor_for_features_from_csv()
-        
-        if checkbox_factor_for_features_from_csv:
-            selectize_with_factor_options_from_csv = ui.input_selectize(  
-                        "selectize_with_factor_options_from_csv",  
-                        "select factor for ["+first_column_header.split()[0].lower()+"]",  
-                        ["random_factor", "country_factor", "line_factor"],  
-                        multiple=True
-                    ),
-            ui.insert_ui(
-                ui.div({"id": "inserted_selectize_with_factor_options_from_csv"}, selectize_with_factor_options_from_csv),
-                selector="#div_for_factors_section",
-                where="beforeEnd",
-            )
-        else:
-            ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
-            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
+            input.holiday_factor_scale_checkbox.value = False
+            if holiday_factor_instance.get() in factor_list:
+                factor_list.remove(holiday_factor_instance.get()) 
+            
+        else:   
+            feature_dict[first_column_header.split()[0].lower()] = selectize_with_options_from_csv
+            update_data_from_csv()
 
-    def generate_value_for_feature_list():
-        input_with_more_features = input.input_feature_list()
-        result=[]
-        for i in range(3):
-            result.append(input_with_more_features + "_" + str(i))
-        return result
-    
     @reactive.effect
-    @reactive.event(input.input_feature_list)
+    @reactive.event(input.additional_features_checkbox)
     def _():
-        input_with_more_features = input.input_feature_list()
-        input_result = ""
-        if input_with_more_features:
-            result = generate_value_for_feature_list()
-            for i, feature in enumerate(result):
-                if i < len(result) - 1:
+        additional_features_checkbox = input.additional_features_checkbox()
+        
+        if additional_features_checkbox:
+            feature_list = ""
+            
+            all_active_features = list(input.selectize_with_all_active_features())
+ 
+            for addition_feature in addition_features.get():
+                feature_list += addition_feature + ", "
+                all_active_features.append(addition_feature)
+                
+            all_available_features.set(all_available_features.get () + addition_features.get())
+            ui.update_selectize(
+                "selectize_with_all_active_features",
+                choices=all_available_features.get(),
+                selected=all_active_features,
+                server=False,
+                ) 
+            
+            input_with_additional_features = ui.input_text(
+                "input_feature_list", 
+                "Input feature list (must separate by comma)", 
+                feature_list[:-2]
+                ),
+            ui.insert_ui(
+                    ui.div({"id": "inserted_input_with_additional_features"}, input_with_additional_features),
+                    selector="#div_for_additional_features",
+                    where="beforeEnd",
+                )
+        else:
+            all_active_features = list(input.selectize_with_all_active_features())
+            for addition_feature in addition_features.get():
+                if len(all_active_features) >= 1:
+                    all_active_features.remove(addition_feature)
+            ui.update_selectize(
+                "selectize_with_all_active_features",
+                choices=all_available_features.get(),
+                selected=all_active_features,
+                server=False,
+                ) 
+            
+            ui.remove_ui("#inserted_input_with_additional_features")
+
+    @reactive.effect
+    @reactive.event(input.additional_features_checkbox)
+    def _():
+        additional_features_checkbox = input.additional_features_checkbox()
+        
+        for i, addition_feature in enumerate(addition_features.get()):
+            
+            input_result = ""
+            result = generate_value_for_feature_list(addition_feature)
+            for j, feature in enumerate(result):
+                if j < len(result) - 1:
                     input_result += feature + ", "
                 else:
                     input_result += feature
-                    
-            ui.update_text("input_value_of_feature_list", value=input_result)
-    
-    @reactive.effect
-    def _():
-        more_features_checkbox = input.more_features_checkbox()
-        
-        if more_features_checkbox:
-            input_with_more_features = ui.input_text(
-            "input_feature_list", 
-            "Input feature list (must separate by comma)", 
-            "product"),
-            input_with_value_of_more_features = ui.input_text(
-            "input_value_of_feature_list", 
-            "Input values of feature ["+  +"] (must separate by comma)", 
-            "product_0,product_1,product_2"),
-            ui.insert_ui(
-                ui.div({"id": "inserted_input_with_more_features"}, input_with_more_features),
-                selector="#div_for_more_features",
-                where="beforeEnd",
-            )
-            ui.insert_ui(
-                ui.div({"id": "inserted_input_with_value_of_more_features"}, input_with_value_of_more_features),
-                selector="#div_for_more_features",
-                where="beforeEnd",
-            )
-        else:
-            ui.remove_ui("#inserted_input_with_more_features")
-            ui.remove_ui("#inserted_input_with_value_of_more_features")
             
-    
-    def out_out():
-        list_of_more_features = input.Input_feature_list().split(",")
-        for index in range(len(list_of_more_features)):
-            feature = list_of_more_features[index]
-            return str(feature)        
-    
-    # @reactive.effect
+            if additional_features_checkbox:
+            
+                input_with_value_of_additional_features = ui.input_text(
+                "input_value_of_additional_feature_v"+str(i), 
+                "Input values of feature ["+addition_feature+"] (must separate by comma)",
+                input_result 
+                ),
+                selectize_with_factor_options_for_additional_features = ui.input_selectize(  
+                        "selectize_with_factor_options_for_additional_feature_v"+str(i),  
+                        "select factor for ["+addition_feature+"]",  
+                        ["random_factor", "country_factor", "line_factor"],  
+                        multiple=True
+                    ),
+            
+                ui.insert_ui(
+                    ui.div({"id": "inserted_selectize_with_factor_options_for_additional_feature_v"+str(i)}, selectize_with_factor_options_for_additional_features),
+                    selector="#div_for_factors_section",
+                    where="beforeEnd",
+                )
+                ui.insert_ui(
+                    ui.div({"id": "inserted_input_with_value_of_additional_feature_v"+str(i)}, input_with_value_of_additional_features),
+                    selector="#div_for_additional_features",
+                    where="beforeEnd",
+                )
+        
+            else:
+                ui.remove_ui("#inserted_selectize_with_factor_options_for_additional_feature_v"+str(i))
+                ui.remove_ui("#inserted_input_with_value_of_additional_feature_v"+str(i))
+                ui.remove_ui("#inserted_input_linear_slope_of_feature_for_additional_feature_v"+str(i)) 
+
+
+    @reactive.effect
+    @reactive.event(input.input_feature_list)
     def _():
-        more_features_checkbox = input.more_features_checkbox()
-        if more_features_checkbox:            
-            input_values_of_feature = ui.input_text(
-            f"Input_values_of_feature_", 
-            f"Input values of feature {out_out()} (must separate by comma)", 
-            "product"),
-            ui.insert_ui(
-                ui.div({"id": f"Input_values_of_feature_"}, input_values_of_feature),
-                selector="#div_for_more_features",
-                where="beforeEnd",
+        input_with_additional_features = input.input_feature_list()
+        
+        if input_with_additional_features:
+            list_of_additional_features = input_with_additional_features.replace(" ", "").split(",")
+            
+            all_active_features_temp = list(input.selectize_with_all_active_features())
+            all_active_features = []
+            
+            if first_column_header.split()[0].lower() in all_active_features_temp:
+                all_active_features.append(first_column_header.split()[0].lower())
+ 
+            for addition_feature in list_of_additional_features:
+                all_active_features.append(addition_feature)
+                
+            all_available_features.set(all_active_features)
+            ui.update_selectize(
+                "selectize_with_all_active_features",
+                choices=all_available_features.get(),
+                selected=all_active_features,
+                server=False,
             )
-        else:
-            ui.remove_ui(f"#Input_values_of_feature_")     
-     
+            
+
+            
+            for i, addition_feature in enumerate(addition_features.get()):
+                ui.remove_ui("#inserted_input_with_value_of_additional_feature_v"+str(i))
+                ui.remove_ui("#inserted_selectize_with_factor_options_for_additional_feature_v"+str(i))
+
+            addition_features.set(list_of_additional_features)
+            for i, addition_feature in enumerate(addition_features.get()):
+                
+                input_result = ""
+                result = generate_value_for_feature_list(str(addition_feature))
+                feature_dict[addition_feature] = result
+                
+                for j, feature in enumerate(result):
+                    if j < len(result) - 1:
+                        input_result += feature + ", "
+                    else:
+                        input_result += feature
+                                
+                input_with_value_of_additional_features = ui.input_text(
+                    "input_value_of_additional_feature_v"+str(i), 
+                    "Input values of feature ["+addition_feature+"] (must separate by comma)",
+                    input_result 
+                    ),
+                selectize_with_factor_options_for_additional_features = ui.input_selectize(  
+                        "selectize_with_factor_options_for_additional_feature_v"+str(i),  
+                        "select factor for ["+addition_feature+"]",  
+                        ["random_factor", "country_factor", "line_factor"],  
+                        multiple=True
+                    ),
+            
+                ui.insert_ui(
+                    ui.div({"id": "inserted_selectize_with_factor_options_for_additional_feature_v"+str(i)}, selectize_with_factor_options_for_additional_features),
+                    selector="#div_for_factors_section",
+                    where="beforeEnd",
+                )
+                ui.insert_ui(
+                    ui.div({"id": "inserted_input_with_value_of_additional_feature_v"+str(i)}, input_with_value_of_additional_features),
+                    selector="#div_for_additional_features",
+                    where="beforeEnd",
+                )  
+            update_more_features()  
     
+    @reactive.effect      
+    def _():
+        for i, addition_feature in enumerate(addition_features.get()):
+            options_from_selectize = input["selectize_with_factor_options_for_additional_feature_v"+str(i)]()
+            if 'line_factor' in options_from_selectize:
+                    ui.remove_ui("#inserted_input_linear_slope_of_feature_for_additional_feature_v"+str(i))
+
+                    input_linear_slope_of_feature_for_additional_feature = ui.input_numeric(
+                                "input_linear_slope_of_feature_for_additional_feature_v"+str(i), 
+                                "Linear slope of "+addition_feature, 
+                                1, min=0, max=100000000000000000000),
+                    ui.insert_ui(
+                        ui.div({"id": "inserted_input_linear_slope_of_feature_for_additional_feature_v"+str(i)}, input_linear_slope_of_feature_for_additional_feature),
+                        selector="#inserted_selectize_with_factor_options_for_additional_feature_v"+str(i),
+                        where="beforeEnd",
+                    )
+            else:
+                ui.remove_ui("#inserted_input_linear_slope_of_feature_for_additional_feature_v"+str(i)) 
+
 app = App(app_ui, server)
