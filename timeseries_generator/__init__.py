@@ -1,7 +1,6 @@
 from .base_factor import BaseFactor
 from .errors import *
 from .generator import Generator
-from .holiday_factor import HolidayFactor
 from .linear_trend import LinearTrend
 from .random_feature_factor import RandomFeatureFactor
 from .sinusoidal_factor import SinusoidalFactor

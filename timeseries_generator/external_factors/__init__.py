@@ -1,3 +1,2 @@
-from .country_gdp_factor import CountryGdpFactor
 from .eu_industry_product_factor import EUIndustryProductFactor
 from .external_factor import ExternalFactor
