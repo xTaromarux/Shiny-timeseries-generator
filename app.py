@@ -255,7 +255,6 @@ def server(input, output, session):
                     col_name=f"random_feature_factor_{option}",
                 ))           
 
-        default_factors()
 
     def add_options_with_factor_from_csv():
         option_selectize_with_factor_from_csv = input.selectize_with_factor_options_from_csv()
@@ -264,11 +263,8 @@ def server(input, output, session):
         features_from_csv_checkbox = input.features_from_csv_checkbox()
 
         liner_value = 1
-        if "line_factor" in option_selectize_with_factor_from_csv:
-            liner_value = input.linear_slope_of_feature_from_csv()
-        
+
         if additional_features_checkbox:
-            
             for i, addition_feature in enumerate(addition_features.get()):
                 options_from_selectize = input["selectize_with_factor_options_for_additional_feature_v"+str(i)]()
 
@@ -281,21 +277,31 @@ def server(input, output, session):
                         ) 
                     
                 if len(options_from_selectize) > 0:
+                    if "line_factor" in options_from_selectize:
+                        liner_value = input["input_linear_slope_of_feature_for_additional_feature_v"+str(i)]
+
                     for feat_val in feature_dict[addition_feature]:
                         factor_list.clear()
+                        default_factors()
                         for factor in options_from_selectize:
                             options_for_selectize_with_factors(factor, addition_feature, liner_value)
                             update_data_from_csv()
                             
                 else:
+                    if "line_factor" in option_selectize_with_factor_from_csv:
+                        liner_value = input.linear_slope_of_feature_from_csv()
                     for feat_val in feature_dict[addition_feature]:
                         factor_list.clear()
+                        default_factors()
                         for factor in option_selectize_with_factor_from_csv:
                             options_for_selectize_with_factors(factor, addition_feature, liner_value)
                             update_data_from_csv()
                         
         elif features_from_csv_checkbox and len(selectize_with_options_from_csv) >= 1:
             factor_list.clear()
+            if "line_factor" in option_selectize_with_factor_from_csv:
+                liner_value = input.linear_slope_of_feature_from_csv()
+            default_factors()
             for factor in option_selectize_with_factor_from_csv:
                 options_for_selectize_with_factors(factor, first_column_header.split()[0].lower(), liner_value)
                 update_data_from_csv()
@@ -372,7 +378,15 @@ def server(input, output, session):
         else:
             ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
         update_data_from_csv()
-     
+    
+    @reactive.effect 
+    @reactive.event(input.selectize_with_all_active_features)
+    def _():
+        selectize_with_all_active_features = input.selectize_with_all_active_features()
+        if len(selectize_with_all_active_features) == 0:
+            factor_list.clear()
+            default_factors()
+         
     @render_widget 
     @reactive.event(input.selectize_with_all_active_features,
                     input.base_amount_input,
@@ -401,7 +415,13 @@ def server(input, output, session):
                 not(additional_features_checkbox) and
                 addition_feature in selectize_with_all_active_features):
                 selectize_with_all_active_features.remove(addition_feature)
-                 
+             
+            if features_from_csv_checkbox:
+                selectize_with_options_from_csv = input.selectize_with_options_from_csv()
+                if (len(selectize_with_options_from_csv) == 0 and 
+                first_column_header.split()[0].lower() in selectize_with_all_active_features):
+                    selectize_with_all_active_features.remove(first_column_header.split()[0].lower())
+    
                 
             if (len(selectize_with_all_active_features) >= 1):         
                 group_feat_l = selectize_with_all_active_features.copy()
@@ -464,9 +484,7 @@ def server(input, output, session):
         else:
             if first_column_header.split()[0].lower() in feature_dict:
                 del feature_dict[first_column_header.split()[0].lower()]
-            
-            add_options_with_factor_from_csv()
-            
+                        
             all_active_features = list(input.selectize_with_all_active_features())
             if len(all_active_features) >= 1 and first_column_header.split()[0].lower() in all_active_features:
                 all_active_features.remove(first_column_header.split()[0].lower())
@@ -486,6 +504,16 @@ def server(input, output, session):
             ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
             ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
             ui.remove_ui("#inserted_checkbox_factor_for_features_from_csv")
+            
+            ui.update_selectize(
+                "selectize_with_options_from_csv",
+                choices=options_list_for_selectize_with_factors,
+                selected=[],
+                server=False,
+                ) 
+            
+            add_options_with_factor_from_csv()
+
              
     @reactive.effect
     @reactive.event(input.selectize_with_options_from_csv)
@@ -563,7 +591,8 @@ def server(input, output, session):
  
             for addition_feature in addition_features.get():
                 feature_list += addition_feature + ", "
-                all_active_features.append(addition_feature)
+                if addition_feature not in all_active_features:
+                    all_active_features.append(addition_feature)
                 
             all_available_features.set(all_available_features.get () + addition_features.get())
             ui.update_selectize(
@@ -589,20 +618,29 @@ def server(input, output, session):
                 if addition_feature in feature_dict:
                     del feature_dict[addition_feature]
                     
-                add_options_with_factor_from_csv()
-
                 if len(all_active_features) >= 1 and addition_feature in all_active_features:
                     all_active_features.remove(addition_feature)
                 
             ui.update_selectize(
                 "selectize_with_all_active_features",
-                choices=all_available_features.get(),
+                choices=all_active_features,
                 selected=all_active_features,
                 server=False,
                 ) 
             
             ui.remove_ui("#inserted_input_with_additional_features")
+            
+            for i, addition_feature in enumerate(addition_features.get()):
+                ui.update_selectize(
+                            "selectize_with_factor_options_for_additional_feature_v"+str(i),
+                            choices=options_list_for_selectize_with_factors,
+                            selected=[],
+                            server=False,
+                            ) 
+                
+            add_options_with_factor_from_csv()
 
+            
     @reactive.effect
     @reactive.event(input.additional_features_checkbox)
     def _():
@@ -665,7 +703,8 @@ def server(input, output, session):
                 all_active_features.append(first_column_header.split()[0].lower())
  
             for addition_feature in list_of_additional_features:
-                all_active_features.append(addition_feature)
+                if addition_feature not in all_active_features:
+                    all_active_features.append(addition_feature)
                 
             all_available_features.set(all_active_features)
             
@@ -756,9 +795,9 @@ def server(input, output, session):
             
             if addition_feature in feature_dict:
                 for feat_val in feature_dict[addition_feature]:
-                    factor_list.clear()
                     if(len(options_from_selectize)>0):
-                        
+                        factor_list.clear()
+                        default_factors()
                         for factor in options_from_selectize:
                             options_for_selectize_with_factors(factor, addition_feature, linear_slope_of_feature)          
                             update_dynamic_data.set(addition_feature+str(randint(0, 100)))
