@@ -54,7 +54,7 @@ app_ui = ui.accordion(
                                     first_column_header.split()[0].lower(),
                                     False),
                                     
-                                id="div_for_data_from_csv",
+                                id="data_from_csv_div",
                             ),
 
                             ui.div(
@@ -63,7 +63,7 @@ app_ui = ui.accordion(
                                     "add more feature(s)", 
                                     False),
                                 
-                                id="div_for_additional_features",
+                                id="additional_features_div",
                             ),
                         ),
             
@@ -71,15 +71,12 @@ app_ui = ui.accordion(
                             ui.accordion_panel(
                                 "Select factor for each feature",
                                 ui.div(
-                                    id="div_for_factors_section",
+                                    id="factors_section_div",
                                 ),
                                 open = False
                             ),
                             ui.accordion_panel(
                                 "Add other factor",
-                                ui.div(
-                                    id = "holiday_factor_scale_div"
-                                ),
                                 
                                 ui.div(
                                     ui.input_checkbox(
@@ -137,7 +134,7 @@ app_ui = ui.accordion(
                                 end="2020-12-31",
                                 width="100%"),  
                             
-                            id="div_for_features_to_aggregate",
+                            id="features_to_aggregate_div",
                             class_="col-md-78 col-lg-78 py-4 mx-auto"
                         ),
                         
@@ -148,7 +145,7 @@ app_ui = ui.accordion(
                             ), 
                             
                             ui.input_selectize(  
-                                "selectize_with_all_active_features",  
+                                "all_active_features_selectize",  
                                 "Choose features to aggregate",  
                                 [],
                                 width="100%",  
@@ -255,7 +252,6 @@ def server(input, output, session):
                     col_name=f"random_feature_factor_{option}",
                 ))           
 
-
     def add_options_with_factor_from_csv():
         option_selectize_with_factor_from_csv = input.selectize_with_factor_options_from_csv()
         selectize_with_options_from_csv = input.selectize_with_options_from_csv()
@@ -325,6 +321,7 @@ def server(input, output, session):
                     ignore_init=False,
                     ignore_none=False)      
     def _():
+        factor_list.clear()
         default_factors()
         update_data_from_csv()
     
@@ -380,15 +377,15 @@ def server(input, output, session):
         update_data_from_csv()
     
     @reactive.effect 
-    @reactive.event(input.selectize_with_all_active_features)
+    @reactive.event(input.all_active_features_selectize)
     def _():
-        selectize_with_all_active_features = input.selectize_with_all_active_features()
-        if len(selectize_with_all_active_features) == 0:
+        all_active_features_selectize = input.all_active_features_selectize()
+        if len(all_active_features_selectize) == 0:
             factor_list.clear()
             default_factors()
          
     @render_widget 
-    @reactive.event(input.selectize_with_all_active_features,
+    @reactive.event(input.all_active_features_selectize,
                     input.base_amount_input,
                     input.daterange,
                     update_state_for_data_from_csv,
@@ -397,34 +394,34 @@ def server(input, output, session):
                     ignore_init=False,
                     ignore_none=False)
     def hist():
-        selectize_with_all_active_features = list(input.selectize_with_all_active_features())
+        all_active_features_selectize = list(input.all_active_features_selectize())
         features_from_csv_checkbox = input.features_from_csv_checkbox()
         additional_features_checkbox = input.additional_features_checkbox()
 
         generatorDataFrame()
         DF_SALE = plot.get()
         for i, addition_feature in enumerate(addition_features.get()):
-            if (len(selectize_with_all_active_features) >= 1 and 
+            if (len(all_active_features_selectize) >= 1 and 
                 first_column_header.split()[0].lower() not in feature_dict and 
                 not(features_from_csv_checkbox) and 
-                first_column_header.split()[0].lower() in selectize_with_all_active_features):
-                selectize_with_all_active_features.remove(first_column_header.split()[0].lower())
+                first_column_header.split()[0].lower() in all_active_features_selectize):
+                all_active_features_selectize.remove(first_column_header.split()[0].lower())
             
-            if (len(selectize_with_all_active_features) >= 1 and 
+            if (len(all_active_features_selectize) >= 1 and 
                 addition_feature not in feature_dict and 
                 not(additional_features_checkbox) and
-                addition_feature in selectize_with_all_active_features):
-                selectize_with_all_active_features.remove(addition_feature)
+                addition_feature in all_active_features_selectize):
+                all_active_features_selectize.remove(addition_feature)
              
             if features_from_csv_checkbox:
                 selectize_with_options_from_csv = input.selectize_with_options_from_csv()
                 if (len(selectize_with_options_from_csv) == 0 and 
-                first_column_header.split()[0].lower() in selectize_with_all_active_features):
-                    selectize_with_all_active_features.remove(first_column_header.split()[0].lower())
+                first_column_header.split()[0].lower() in all_active_features_selectize):
+                    all_active_features_selectize.remove(first_column_header.split()[0].lower())
     
                 
-            if (len(selectize_with_all_active_features) >= 1):         
-                group_feat_l = selectize_with_all_active_features.copy()
+            if (len(all_active_features_selectize) >= 1):         
+                group_feat_l = all_active_features_selectize.copy()
                 group_feat_l.insert(0, "date")
                 DF_VIS = DF_SALE.groupby(group_feat_l)["value"].sum().reset_index()
             else:
@@ -433,10 +430,10 @@ def server(input, output, session):
             if "date" in DF_VIS.columns and "value" in DF_VIS.columns:
                 DF_PLOT = DF_VIS[["date", "value"]]
 
-            if (len(selectize_with_all_active_features) >= 1): 
-                color_col = "-".join(selectize_with_all_active_features)
+            if (len(all_active_features_selectize) >= 1): 
+                color_col = "-".join(all_active_features_selectize)
                 DF_PLOT[color_col] = functools.reduce(
-                    lambda x, y: x + "-" + y, (DF_VIS[feat] for feat in selectize_with_all_active_features)
+                    lambda x, y: x + "-" + y, (DF_VIS[feat] for feat in all_active_features_selectize)
                 )
                 base = px.line(DF_PLOT, x="date", y="value", color=color_col)
 
@@ -445,7 +442,7 @@ def server(input, output, session):
         return base 
         
     @render.data_frame
-    @reactive.event(input.selectize_with_all_active_features,
+    @reactive.event(input.all_active_features_selectize,
                     input.base_amount_input,
                     input.daterange,
                     update_state_for_data_from_csv,
@@ -477,7 +474,7 @@ def server(input, output, session):
             ),
             ui.insert_ui(
                 ui.div({"id": "inserted_input_selectize_with_data_from_csv"}, input_with_data_from_csv),
-                selector="#div_for_data_from_csv",
+                selector="#data_from_csv_div",
                 where="beforeEnd",
             )
             
@@ -485,7 +482,7 @@ def server(input, output, session):
             if first_column_header.split()[0].lower() in feature_dict:
                 del feature_dict[first_column_header.split()[0].lower()]
                         
-            all_active_features = list(input.selectize_with_all_active_features())
+            all_active_features = list(input.all_active_features_selectize())
             if len(all_active_features) >= 1 and first_column_header.split()[0].lower() in all_active_features:
                 all_active_features.remove(first_column_header.split()[0].lower())
                 
@@ -494,7 +491,7 @@ def server(input, output, session):
                 all_available_features_temp.remove(first_column_header.split()[0].lower())
                 all_available_features.set(all_available_features_temp)
             ui.update_selectize(
-                "selectize_with_all_active_features",
+                "all_active_features_selectize",
                 choices=all_available_features.get(),
                 selected=all_active_features,
                 server=False,
@@ -513,8 +510,7 @@ def server(input, output, session):
                 ) 
             
             add_options_with_factor_from_csv()
-
-             
+            
     @reactive.effect
     @reactive.event(input.selectize_with_options_from_csv)
     def _():
@@ -534,15 +530,15 @@ def server(input, output, session):
             
             ui.insert_ui(
                 ui.div({"id": "inserted_selectize_with_factor_options_from_csv"}, selectize_with_factor_options_from_csv),
-                selector="#div_for_factors_section",
+                selector="#factors_section_div",
                 where="beforeEnd",
             )
             
-            all_active_features = list(input.selectize_with_all_active_features())
+            all_active_features = list(input.all_active_features_selectize())
             all_active_features.append(first_column_header.split()[0].lower())
             all_available_features.set(all_available_features.get() + [first_column_header.split()[0].lower()])
             ui.update_selectize(
-                "selectize_with_all_active_features",
+                "all_active_features_selectize",
                 choices=all_available_features.get(),
                 selected=all_active_features,
                 server=False,
@@ -555,7 +551,7 @@ def server(input, output, session):
             
             add_options_with_factor_from_csv()
             
-            all_active_features = list(input.selectize_with_all_active_features())
+            all_active_features = list(input.all_active_features_selectize())
             all_available_features_temp = all_available_features.get()
                 
             if first_column_header.split()[0].lower() in all_active_features:
@@ -566,7 +562,7 @@ def server(input, output, session):
                 all_available_features.set(all_available_features_temp)
                 
             ui.update_selectize(
-                "selectize_with_all_active_features",
+                "all_active_features_selectize",
                 choices=all_available_features.get(),
                 selected=all_active_features,
                 server=False,
@@ -587,7 +583,7 @@ def server(input, output, session):
         if additional_features_checkbox:
             feature_list = ""
             
-            all_active_features = list(input.selectize_with_all_active_features())
+            all_active_features = list(input.all_active_features_selectize())
  
             for addition_feature in addition_features.get():
                 feature_list += addition_feature + ", "
@@ -596,7 +592,7 @@ def server(input, output, session):
                 
             all_available_features.set(all_available_features.get () + addition_features.get())
             ui.update_selectize(
-                "selectize_with_all_active_features",
+                "all_active_features_selectize",
                 choices=all_available_features.get(),
                 selected=all_active_features,
                 server=False,
@@ -609,11 +605,11 @@ def server(input, output, session):
                 ),
             ui.insert_ui(
                     ui.div({"id": "inserted_input_with_additional_features"}, input_with_additional_features),
-                    selector="#div_for_additional_features",
+                    selector="#additional_features_div",
                     where="beforeEnd",
                 )
         else:
-            all_active_features = list(input.selectize_with_all_active_features())
+            all_active_features = list(input.all_active_features_selectize())
             for addition_feature in addition_features.get():
                 if addition_feature in feature_dict:
                     del feature_dict[addition_feature]
@@ -622,7 +618,7 @@ def server(input, output, session):
                     all_active_features.remove(addition_feature)
                 
             ui.update_selectize(
-                "selectize_with_all_active_features",
+                "all_active_features_selectize",
                 choices=all_active_features,
                 selected=all_active_features,
                 server=False,
@@ -639,8 +635,7 @@ def server(input, output, session):
                             ) 
                 
             add_options_with_factor_from_csv()
-
-            
+         
     @reactive.effect
     @reactive.event(input.additional_features_checkbox)
     def _():
@@ -672,12 +667,12 @@ def server(input, output, session):
             
                 ui.insert_ui(
                     ui.div({"id": "inserted_selectize_with_factor_options_for_additional_feature_v"+str(i)}, selectize_with_factor_options_for_additional_features),
-                    selector="#div_for_factors_section",
+                    selector="#factors_section_div",
                     where="beforeEnd",
                 )
                 ui.insert_ui(
                     ui.div({"id": "inserted_input_with_value_of_additional_feature_v"+str(i)}, input_with_value_of_additional_features),
-                    selector="#div_for_additional_features",
+                    selector="#additional_features_div",
                     where="beforeEnd",
                 )
         
@@ -696,7 +691,7 @@ def server(input, output, session):
         if input_with_additional_features:
             list_of_additional_features = input_with_additional_features.replace(" ", "").split(",")
             
-            all_active_features_temp = list(input.selectize_with_all_active_features())
+            all_active_features_temp = list(input.all_active_features_selectize())
             all_active_features = []
             
             if first_column_header.split()[0].lower() in all_active_features_temp:
@@ -739,16 +734,16 @@ def server(input, output, session):
                     ),
                 ui.insert_ui(
                     ui.div({"id": "inserted_selectize_with_factor_options_for_additional_feature_v"+str(i)}, selectize_with_factor_options_for_additional_features),
-                    selector="#div_for_factors_section",
+                    selector="#factors_section_div",
                     where="beforeEnd",
                 )
                 ui.insert_ui(
                     ui.div({"id": "inserted_input_with_value_of_additional_feature_v"+str(i)}, input_with_value_of_additional_features),
-                    selector="#div_for_additional_features",
+                    selector="#additional_features_div",
                     where="beforeEnd",
                 )  
             ui.update_selectize(
-                "selectize_with_all_active_features",
+                "all_active_features_selectize",
                 choices=all_available_features.get(),
                 selected=all_active_features,
                 server=False,
