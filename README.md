@@ -33,7 +33,7 @@ This formula describes the concepts we talk above
 pip install -r ./Shiny-timeseries-generator/requirements.txt
 ```
 
-## Web based prototyping UI
+## Web based UI
 I also use [Shiny for Python](https://shiny.posit.co/py/) to build a web-based UI to demonstrate how to use this package to generate synthesis time series data in an interactive web UI.
 ``` sh
 shiny run --reload --launch-browser ./Shiny-timeseries-generator/app.py
