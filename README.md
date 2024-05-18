@@ -30,13 +30,13 @@ This formula describes the concepts we talk above
 
 ## Installation
 ```sh
-pip install -r ./Shiny-timeseries-generator/requirements.txt
+pip install -r ./Shiny-timeseries-generator-main/requirements.txt
 ```
 
 ## Web based UI
 I also use [Shiny for Python](https://shiny.posit.co/py/) to build a web-based UI to demonstrate how to use this package to generate synthesis time series data in an interactive web UI.
 ``` sh
-shiny run --reload --launch-browser ./Shiny-timeseries-generator/app.py
+shiny run --reload --launch-browser ./Shiny-timeseries-generator-main/app.py
 ```
 ![Web UI](resources/img/webui.png)
 
