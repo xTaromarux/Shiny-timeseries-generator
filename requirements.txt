@@ -1,6 +1,5 @@
 shiny
 shinywidgets
-random
 pathlib
 pandas
 plotly
