@@ -4,7 +4,6 @@ pathlib
 pandas
 plotly
 datetime
-functools
 scipy
 build
 jupyter
