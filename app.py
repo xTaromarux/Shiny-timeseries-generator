@@ -19,7 +19,7 @@ from timeseries_generator import (
 
 app_dir = Path(__file__).parent
 file_path  = reactive.value(app_dir/"resources"/"csv"/ "GDP_per_capita_countries.csv")
-df = reactive.value()
+file = reactive.value()
 unique_values = reactive.value()
 first_column_header = reactive.value()
 feature_dict = {}
@@ -391,9 +391,9 @@ def server(input, output, session):
         if upload_file_input and upload_file_input[0]["type"] == 'text/csv':
             file_path.set(upload_file_input[0]["datapath"])
             
-        df.set(pd.read_csv(file_path.get()))
-        unique_values.set(df.get().iloc[:, 0].unique())
-        first_column_header.set(df.get().columns[0])
+        file.set(pd.read_csv(file_path.get()))
+        unique_values.set(file.get().iloc[:, 0].unique())
+        first_column_header.set(file.get().columns[0])
         
         ui.remove_ui("#inserted_features_from_csv_checkbox")     
 
@@ -537,7 +537,7 @@ def server(input, output, session):
     @reactive.event(input.all_active_features_selectize,
                     input.base_amount_input,
                     input.daterange,
-                    input.selectize_with_options_from_csv,
+                    input.features_from_csv_checkbox,
                     update_state_for_data_from_csv,
                     update_state_for_more_features,
                     update_dynamic_data,
