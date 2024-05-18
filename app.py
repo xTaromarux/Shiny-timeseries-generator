@@ -18,9 +18,10 @@ from timeseries_generator import (
 )
 
 app_dir = Path(__file__).parent
-df = pd.read_csv(app_dir /"timeseries_generator"/"resources"/"public_data"/ "GDP_per_capita_countries.csv")
-unique_values = df.iloc[:, 0].unique()
-first_column_header = df.columns[0]
+file_path  = reactive.value(app_dir/"resources"/"csv"/ "GDP_per_capita_countries.csv")
+df = reactive.value()
+unique_values = reactive.value()
+first_column_header = reactive.value()
 feature_dict = {}
 factor_list = []
 options_list_for_selectize_with_factors = ["random_factor", "line_factor"]
@@ -32,10 +33,12 @@ all_available_features = reactive.value([])
 number_of_rows_for_dataframe = reactive.value(1)
 number_of__all_rows = reactive.value()
 update_dynamic_data = reactive.value("")
+css_file = Path(__file__).parent / "css" / "styles.css"
 
 app_ui = ui.accordion(
             ui.accordion_panel(
                 "Shiny Time Series Syntheic Data Generator",
+                ui.include_css(css_file),
                 ui.page_sidebar(
                     ui.sidebar(
                         ui.div(
@@ -49,11 +52,6 @@ app_ui = ui.accordion(
                                 "Input features"),
                                     
                             ui.div(
-                                ui.input_checkbox(
-                                    "features_from_csv_checkbox",
-                                    first_column_header.split()[0].lower(),
-                                    False),
-                                    
                                 id="data_from_csv_div",
                             ),
 
@@ -107,15 +105,44 @@ app_ui = ui.accordion(
                                     "Add random noise", 
                                     False),
                             ),
-                
+
                             id="acc_items", 
                             multiple=True
                         ),
-                        
+                        ui.input_file("upload_file_input", 
+                                      "Choose a file to upload:", 
+                                      multiple=False),
+
                         width=300
                     ),
 
                     restrict_width(
+                        ui.div(
+                                ui.div(
+                                    ui.h5(
+                                        "Upload file",
+                                        class_= "fw-bold"
+                                    ),
+                                    ui.h6(
+                                        "The file you upload will allow you to determine\
+                                        the features for which you will be able to generate\
+                                        time series. What is really important is the first column of your file.\
+                                        The examples are located in the folder \
+                                        resources/csv/",
+                                        class_="text-wrap"
+                                    ),
+                                    class_="col-10 text-wrap"
+                                ),
+                                ui.div(
+                                        ui.input_action_button( "close_info_about_upload_file_button", 
+                                                                "X",
+                                                                class_="p-1 px-2 m-0 shadow-none"),
+                                        class_="d-flex flex-row-reverse align-items-start col-2"
+                                    ),
+                                id="information_about_upload_file_div",
+                                class_="p-3 my-4 mx-auto w-100 row"
+                            ),
+                        
                         ui.h1(
                             "Shiny Time Series Syntheic Data Generator",
                             class_="text-lg-center text-left fw-bold",
@@ -160,7 +187,7 @@ app_ui = ui.accordion(
                                     ),
                                     ui.div(
                                         ui.download_button("download_button", "Download csv file", class_="btn-primary col-7"),
-                                        class_=" row justify-content-start align-items-end",
+                                        class_="row justify-content-start align-items-end",
                                     ),
                                     
                                     class_="justify-content-start align-items-end col pb-3"
@@ -184,7 +211,7 @@ app_ui = ui.accordion(
         )
 
 def server(input, output, session):
-    
+ 
     def generatorDataFrame():
         base_amount = input.base_amount_input()
         start_date = input.daterange()[0]
@@ -202,7 +229,7 @@ def server(input, output, session):
     
     def objects_with_data_from_csv():
         result = {}
-        for index, value in enumerate(unique_values):
+        for index, value in enumerate(unique_values.get()):
             result.update({value : value})
         return result
  
@@ -229,8 +256,7 @@ def server(input, output, session):
         if weekend_factor_scale_checkbox:   
             factor_list.append(WeekdayFactor(intensity_scale=weekend_factor_scale_slider))                
     
-    def options_for_selectize_with_factors(factor, option, linera_value):
-        
+    def options_for_selectize_with_factors(factor, option, linera_value):     
         if factor == 'line_factor':
             feat_val_linear_trend_dict = {}
             for feat_val in feature_dict[option]:
@@ -299,7 +325,7 @@ def server(input, output, session):
                 liner_value = input.linear_slope_of_feature_from_csv()
             default_factors()
             for factor in option_selectize_with_factor_from_csv:
-                options_for_selectize_with_factors(factor, first_column_header.split()[0].lower(), liner_value)
+                options_for_selectize_with_factors(factor, first_column_header.get().split()[0].lower(), liner_value)
                 update_data_from_csv()
         else:
             factor_list.clear()
@@ -311,6 +337,75 @@ def server(input, output, session):
         for i in range(3):
             result.append(addition_features + "_" + str(i))
         return result         
+    
+    @reactive.effect
+    @reactive.event(input.close_info_about_upload_file_button, 
+                    ignore_init=True,
+                    ignore_none=True)
+    def _():
+        ui.remove_ui("#information_about_upload_file_div")
+    
+    @reactive.effect
+    @reactive.event(input.upload_file_input, 
+                    ignore_init=True,
+                    ignore_none=False)
+    def _():
+        if first_column_header.get().split()[0].lower() in feature_dict:
+            del feature_dict[first_column_header.get().split()[0].lower()]
+                        
+        all_active_features = list(input.all_active_features_selectize())
+        if len(all_active_features) >= 1 and first_column_header.get().split()[0].lower() in all_active_features:
+            all_active_features.remove(first_column_header.get().split()[0].lower())
+            
+        all_available_features_temp = all_available_features.get()
+        if first_column_header.get().split()[0].lower() in all_available_features_temp:
+            all_available_features_temp.remove(first_column_header.get().split()[0].lower())
+            all_available_features.set(all_available_features_temp)
+        ui.update_selectize(
+            "all_active_features_selectize",
+            choices=all_available_features.get(),
+            selected=all_active_features,
+            server=False,
+            ) 
+        ui.update_checkbox("features_from_csv_checkbox", value=False)
+        ui.remove_ui("#inserted_input_selectize_with_data_from_csv")     
+        ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
+        ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
+        ui.remove_ui("#inserted_checkbox_factor_for_features_from_csv")
+        
+        ui.update_selectize(
+            "selectize_with_options_from_csv",
+            choices=options_list_for_selectize_with_factors,
+            selected=[],
+            server=False,
+            ) 
+        
+        add_options_with_factor_from_csv()
+    
+    @reactive.effect
+    @reactive.event(input.upload_file_input, 
+                    ignore_init=False,
+                    ignore_none=False)
+    def _():
+        upload_file_input = input.upload_file_input()
+        if upload_file_input and upload_file_input[0]["type"] == 'text/csv':
+            file_path.set(upload_file_input[0]["datapath"])
+            
+        df.set(pd.read_csv(file_path.get()))
+        unique_values.set(df.get().iloc[:, 0].unique())
+        first_column_header.set(df.get().columns[0])
+        
+        ui.remove_ui("#inserted_features_from_csv_checkbox")     
+
+        features_from_csv_checkbox = ui.input_checkbox(
+            "features_from_csv_checkbox",
+            first_column_header.get().split()[0].lower(),
+            False),
+        ui.insert_ui(
+                ui.div({"id": "inserted_features_from_csv_checkbox"}, features_from_csv_checkbox),
+                selector="#data_from_csv_div",
+                where="beforeBegin",
+            )                            
     
     @reactive.effect 
     @reactive.event(input.weekend_factor_scale_checkbox,
@@ -365,7 +460,7 @@ def server(input, output, session):
 
                 input_linear_slope_of_feature_from_csv = ui.input_numeric(
                             "linear_slope_of_feature_from_csv", 
-                            "Linear slope of "+first_column_header.split()[0].lower(), 
+                            "Linear slope of "+first_column_header.get().split()[0].lower(), 
                             1, min=0, max=100000000000000000000),
                 ui.insert_ui(
                     ui.div({"id": "inserted_input_linear_slope_of_feature_from_csv"}, input_linear_slope_of_feature_from_csv),
@@ -383,11 +478,66 @@ def server(input, output, session):
         if len(all_active_features_selectize) == 0:
             factor_list.clear()
             default_factors()
-         
+     
+    @reactive.effect
+    @reactive.event(input.features_from_csv_checkbox,
+                    ignore_init=False,
+                    ignore_none=False)
+    def _():
+        features_from_csv_checkbox = input.features_from_csv_checkbox()
+
+        if features_from_csv_checkbox:      
+                  
+            input_with_data_from_csv = ui.input_selectize(  
+                "selectize_with_options_from_csv",  
+                "Choose "+first_column_header.get().split()[0],  
+                objects_with_data_from_csv(),  
+                multiple=True
+            ),
+            ui.insert_ui(
+                ui.div({"id": "inserted_input_selectize_with_data_from_csv"}, input_with_data_from_csv),
+                selector="#data_from_csv_div",
+                where="beforeEnd",
+            )
+            
+        else:
+            if first_column_header.get().split()[0].lower() in feature_dict:
+                del feature_dict[first_column_header.get().split()[0].lower()]
+                        
+            all_active_features = list(input.all_active_features_selectize())
+            if len(all_active_features) >= 1 and first_column_header.get().split()[0].lower() in all_active_features:
+                all_active_features.remove(first_column_header.get().split()[0].lower())
+                
+            all_available_features_temp = all_available_features.get()
+            if first_column_header.get().split()[0].lower() in all_available_features_temp:
+                all_available_features_temp.remove(first_column_header.get().split()[0].lower())
+                all_available_features.set(all_available_features_temp)
+            ui.update_selectize(
+                "all_active_features_selectize",
+                choices=all_available_features.get(),
+                selected=all_active_features,
+                server=False,
+                ) 
+            
+            ui.remove_ui("#inserted_input_selectize_with_data_from_csv")     
+            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
+            ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
+            ui.remove_ui("#inserted_checkbox_factor_for_features_from_csv")
+            
+            ui.update_selectize(
+                "selectize_with_options_from_csv",
+                choices=options_list_for_selectize_with_factors,
+                selected=[],
+                server=False,
+                ) 
+            
+            add_options_with_factor_from_csv()
+                 
     @render_widget 
     @reactive.event(input.all_active_features_selectize,
                     input.base_amount_input,
                     input.daterange,
+                    input.selectize_with_options_from_csv,
                     update_state_for_data_from_csv,
                     update_state_for_more_features,
                     update_dynamic_data,
@@ -402,10 +552,10 @@ def server(input, output, session):
         DF_SALE = plot.get()
         for i, addition_feature in enumerate(addition_features.get()):
             if (len(all_active_features_selectize) >= 1 and 
-                first_column_header.split()[0].lower() not in feature_dict and 
+                first_column_header.get().split()[0].lower() not in feature_dict and 
                 not(features_from_csv_checkbox) and 
-                first_column_header.split()[0].lower() in all_active_features_selectize):
-                all_active_features_selectize.remove(first_column_header.split()[0].lower())
+                first_column_header.get().split()[0].lower() in all_active_features_selectize):
+                all_active_features_selectize.remove(first_column_header.get().split()[0].lower())
             
             if (len(all_active_features_selectize) >= 1 and 
                 addition_feature not in feature_dict and 
@@ -416,8 +566,8 @@ def server(input, output, session):
             if features_from_csv_checkbox:
                 selectize_with_options_from_csv = input.selectize_with_options_from_csv()
                 if (len(selectize_with_options_from_csv) == 0 and 
-                first_column_header.split()[0].lower() in all_active_features_selectize):
-                    all_active_features_selectize.remove(first_column_header.split()[0].lower())
+                first_column_header.get().split()[0].lower() in all_active_features_selectize):
+                    all_active_features_selectize.remove(first_column_header.get().split()[0].lower())
     
                 
             if (len(all_active_features_selectize) >= 1):         
@@ -458,60 +608,6 @@ def server(input, output, session):
         return DF_SALE
     
     @reactive.effect
-    @reactive.event(input.features_from_csv_checkbox,
-                    ignore_init=False,
-                    ignore_none=False)
-    def _():
-        features_from_csv_checkbox = input.features_from_csv_checkbox()
-
-        if features_from_csv_checkbox:      
-                  
-            input_with_data_from_csv = ui.input_selectize(  
-                "selectize_with_options_from_csv",  
-                "Choose "+first_column_header.split()[0],  
-                objects_with_data_from_csv(),  
-                multiple=True
-            ),
-            ui.insert_ui(
-                ui.div({"id": "inserted_input_selectize_with_data_from_csv"}, input_with_data_from_csv),
-                selector="#data_from_csv_div",
-                where="beforeEnd",
-            )
-            
-        else:
-            if first_column_header.split()[0].lower() in feature_dict:
-                del feature_dict[first_column_header.split()[0].lower()]
-                        
-            all_active_features = list(input.all_active_features_selectize())
-            if len(all_active_features) >= 1 and first_column_header.split()[0].lower() in all_active_features:
-                all_active_features.remove(first_column_header.split()[0].lower())
-                
-            all_available_features_temp = all_available_features.get()
-            if first_column_header.split()[0].lower() in all_available_features_temp:
-                all_available_features_temp.remove(first_column_header.split()[0].lower())
-                all_available_features.set(all_available_features_temp)
-            ui.update_selectize(
-                "all_active_features_selectize",
-                choices=all_available_features.get(),
-                selected=all_active_features,
-                server=False,
-                ) 
-            
-            ui.remove_ui("#inserted_input_selectize_with_data_from_csv")     
-            ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
-            ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
-            ui.remove_ui("#inserted_checkbox_factor_for_features_from_csv")
-            
-            ui.update_selectize(
-                "selectize_with_options_from_csv",
-                choices=options_list_for_selectize_with_factors,
-                selected=[],
-                server=False,
-                ) 
-            
-            add_options_with_factor_from_csv()
-            
-    @reactive.effect
     @reactive.event(input.selectize_with_options_from_csv)
     def _():
         selectize_with_options_from_csv = input.selectize_with_options_from_csv()
@@ -519,11 +615,11 @@ def server(input, output, session):
             ui.remove_ui("#inserted_selectize_with_factor_options_from_csv")
             ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")
             
-            feature_dict[first_column_header.split()[0].lower()] = selectize_with_options_from_csv
+            feature_dict[first_column_header.get().split()[0].lower()] = selectize_with_options_from_csv
 
             selectize_with_factor_options_from_csv = ui.input_selectize(  
                         "selectize_with_factor_options_from_csv",  
-                        "select factor for ["+first_column_header.split()[0].lower()+"]",  
+                        "select factor for ["+first_column_header.get().split()[0].lower()+"]",  
                         options_list_for_selectize_with_factors,  
                         multiple=True
                     ),
@@ -535,8 +631,8 @@ def server(input, output, session):
             )
             
             all_active_features = list(input.all_active_features_selectize())
-            all_active_features.append(first_column_header.split()[0].lower())
-            all_available_features.set(all_available_features.get() + [first_column_header.split()[0].lower()])
+            all_active_features.append(first_column_header.get().split()[0].lower())
+            all_available_features.set(all_available_features.get() + [first_column_header.get().split()[0].lower()])
             ui.update_selectize(
                 "all_active_features_selectize",
                 choices=all_available_features.get(),
@@ -546,19 +642,19 @@ def server(input, output, session):
             update_data_from_csv()
                 
         elif len(selectize_with_options_from_csv) < 1:
-            if first_column_header.split()[0].lower() in feature_dict:
-                del feature_dict[first_column_header.split()[0].lower()]
+            if first_column_header.get().split()[0].lower() in feature_dict:
+                del feature_dict[first_column_header.get().split()[0].lower()]
             
             add_options_with_factor_from_csv()
             
             all_active_features = list(input.all_active_features_selectize())
             all_available_features_temp = all_available_features.get()
                 
-            if first_column_header.split()[0].lower() in all_active_features:
-                all_active_features.remove(first_column_header.split()[0].lower())
+            if first_column_header.get().split()[0].lower() in all_active_features:
+                all_active_features.remove(first_column_header.get().split()[0].lower())
                 
-            if first_column_header.split()[0].lower() in all_available_features_temp:
-                all_available_features_temp.remove(first_column_header.split()[0].lower())
+            if first_column_header.get().split()[0].lower() in all_available_features_temp:
+                all_available_features_temp.remove(first_column_header.get().split()[0].lower())
                 all_available_features.set(all_available_features_temp)
                 
             ui.update_selectize(
@@ -572,7 +668,7 @@ def server(input, output, session):
             ui.remove_ui("#inserted_input_linear_slope_of_feature_from_csv")            
             
         else:   
-            feature_dict[first_column_header.split()[0].lower()] = selectize_with_options_from_csv
+            feature_dict[first_column_header.get().split()[0].lower()] = selectize_with_options_from_csv
             update_data_from_csv()
 
     @reactive.effect
@@ -694,8 +790,8 @@ def server(input, output, session):
             all_active_features_temp = list(input.all_active_features_selectize())
             all_active_features = []
             
-            if first_column_header.split()[0].lower() in all_active_features_temp:
-                all_active_features.append(first_column_header.split()[0].lower())
+            if first_column_header.get().split()[0].lower() in all_active_features_temp:
+                all_active_features.append(first_column_header.get().split()[0].lower())
  
             for addition_feature in list_of_additional_features:
                 if addition_feature not in all_active_features:
@@ -797,6 +893,8 @@ def server(input, output, session):
                             options_for_selectize_with_factors(factor, addition_feature, linear_slope_of_feature)          
                             update_dynamic_data.set(addition_feature+str(randint(0, 100)))
                     else:
+                        factor_list.clear()
+                        default_factors()
                         update_dynamic_data.set(addition_feature+str(randint(0, 100)))
 
     @reactive.effect()

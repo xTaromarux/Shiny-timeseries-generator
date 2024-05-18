@@ -8,7 +8,7 @@ This package i based on code from repository [timeseries-generator](https://gith
 ```
 ts = base_value * factor1 * factor2 * ... * factorN + Noiser
 ```
-![Diagram](resources/diagram.png)
+![Diagram](resources/img/diagram.png)
 
 
 These factors can be anything, random noise, linear trends, to seasonality. The factors can affect different features. For example, some features in your time series may have a seasonal component, while others do not.
@@ -38,7 +38,7 @@ I also use [Shiny for Python](https://shiny.posit.co/py/) to build a web-based U
 ``` sh
 shiny run --reload --launch-browser ./Shiny-timeseries-generator/app.py
 ```
-![Web UI](resources/webui.png)
+![Web UI](resources/img/webui.png)
 
 
 ## License

@@ -1,0 +1,19 @@
+#information_about_upload_file_div{
+    background-color: #CFF4FA;
+    color: #337782;
+    border: 1px solid #BFE3EB;
+    border-radius:10px;
+}
+
+#close_info_about_upload_file_button{
+    border: none;
+    background-color: #CFF4FA;
+    color: #337782;
+}
+
+#close_info_about_upload_file_button:hover{
+    border: none;
+    background-color: #CFF4FA;
+    color: #337782;
+    font-weight: bold;
+}
